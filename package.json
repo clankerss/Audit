@@ -1,0 +1,19 @@
+{
+  "name": "audit",
+  "version": "0.1.0",
+  "description": "Paste a website. An agent opens it in a real browser, tests what it claims, and reports what actually happens.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "dotenv": "^18.0.5",
+    "express": "^4.22.3",
+    "playwright": "1.56.0"
+  }
+}
