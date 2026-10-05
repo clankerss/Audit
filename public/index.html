@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Audit — does this website do what it claims?</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔎</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF0EF; --surface:#FFFFFF; --ink:#18201E; --muted:#5C6865; --line:#D3DAD8; --sunk:#E3E8E6;
+  --accent:#0E6E62; --accent-ink:#FFFFFF;
+  --works:#1D7444; --works-bg:#E2F2E8; --partial:#94660A; --partial-bg:#F8EED8;
+  --nac:#AE3A2E; --nac-bg:#F8E4E1; --unt:#5F6B70; --unt-bg:#E4E8EA;
+  --sans:"Instrument Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111615; --surface:#19201E; --ink:#E6ECEA; --muted:#97A39F; --line:#2A3431; --sunk:#151B19;
+  --accent:#4FC1B0; --accent-ink:#0B1513;
+  --works:#5BCB8B; --works-bg:#173025; --partial:#E2AE48; --partial-bg:#33291A; --nac:#F07F72; --nac-bg:#3A201D; --unt:#A3AEB3; --unt-bg:#232B2E;
+}}
+:root[data-theme="dark"]{
+  --bg:#111615; --surface:#19201E; --ink:#E6ECEA; --muted:#97A39F; --line:#2A3431; --sunk:#151B19;
+  --accent:#4FC1B0; --accent-ink:#0B1513;
+  --works:#5BCB8B; --works-bg:#173025; --partial:#E2AE48; --partial-bg:#33291A; --nac:#F07F72; --nac-bg:#3A201D; --unt:#A3AEB3; --unt-bg:#232B2E;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+main{max-width:52rem;margin:0 auto;padding:3rem 1.25rem 4rem}
+h1{font-size:clamp(3rem,10vw,5.25rem);font-weight:700;letter-spacing:-0.045em;line-height:.95;margin:0}
+.lede{color:var(--muted);font-size:1.1rem;max-width:36rem;margin:.9rem 0 2rem}
+form.bar{display:flex;gap:.5rem;background:var(--surface);border:2px solid var(--ink);border-radius:14px;padding:.4rem}
+form.bar input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:1.1rem;padding:.6rem .7rem}
+form.bar input:focus{outline:none}
+form.bar:focus-within{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+.btn{font:inherit;font-weight:600;border-radius:10px;padding:.65rem 1.2rem;cursor:pointer;border:1.5px solid transparent;white-space:nowrap}
+.btn-primary{background:var(--accent);color:var(--accent-ink)}
+.btn-primary:disabled{opacity:.5;cursor:default}
+.btn-ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn-small{padding:.4rem .8rem;font-size:.9rem}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.keyrow{display:flex;gap:.5rem;margin-top:.75rem;align-items:center;flex-wrap:wrap}
+.keyrow input{font:inherit;padding:.5rem .7rem;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);min-width:14rem}
+.examples{margin-top:.8rem;color:var(--muted);font-size:.92rem}
+.examples button{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.error{margin-top:1rem;color:var(--nac);font-weight:500}
+[hidden]{display:none!important}
+
+/* Live run */
+.run{margin-top:2.5rem}
+.run-head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.75rem;flex-wrap:wrap}
+.run-head h2{font-size:1.25rem;margin:0;letter-spacing:-0.01em}
+.run-meta{color:var(--muted);font-size:.92rem;display:flex;gap:.75rem;align-items:center}
+.feed{list-style:none;margin:0;padding:.5rem 0;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;max-height:26rem;overflow:auto;font-size:.92rem}
+.feed li{display:grid;grid-template-columns:1.6rem 1fr;gap:.3rem;padding:.45rem 1rem}
+.feed li.note{color:var(--muted);font-style:italic}
+.feed .icon{font-family:var(--mono);text-align:center}
+.feed .label{font-family:var(--mono);font-size:.85rem;overflow-wrap:anywhere}
+.feed .sum{display:block;color:var(--muted);font-family:var(--sans);font-size:.88rem}
+.feed li.running .icon{color:var(--accent);animation:pulse 1s ease-in-out infinite}
+.feed li.done .icon{color:var(--works)}
+.feed li.error .icon{color:var(--nac)}
+.feed li.blocked .icon{color:var(--partial)}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.feed li.running .icon{animation:none}}
+.shots{display:flex;gap:.6rem;overflow-x:auto;padding:.75rem 0 .25rem}
+.shot{flex:none;width:11rem;background:none;border:1.5px solid var(--line);border-radius:10px;padding:0;cursor:zoom-in;overflow:hidden;text-align:left;color:var(--ink)}
+.shot img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top}
+.shot span{display:block;font-size:.78rem;padding:.35rem .5rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Report */
+.report{margin-top:3rem;border-top:3px solid var(--ink);padding-top:1.75rem}
+.site-title{font-size:clamp(1.6rem,4.5vw,2.3rem);font-weight:700;letter-spacing:-0.025em;line-height:1.15;margin:0}
+.site-url{color:var(--muted);font-size:.92rem;overflow-wrap:anywhere}
+.site-url a{color:inherit}
+.site-summary{font-size:1.08rem;max-width:42rem;margin:.9rem 0 0}
+.tally{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.25rem}
+.chip{display:inline-flex;gap:.4rem;align-items:center;font-weight:600;font-size:.9rem;padding:.3rem .75rem;border-radius:999px}
+.chip b{font-size:1.05rem}
+.works{background:var(--works-bg);color:var(--works)} .partial{background:var(--partial-bg);color:var(--partial)}
+.not_as_claimed{background:var(--nac-bg);color:var(--nac)} .untestable{background:var(--unt-bg);color:var(--unt)}
+.claims{list-style:none;margin:2rem 0 0;padding:0;display:grid;gap:.9rem}
+.claim{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:1rem 1.15rem}
+.claim-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+.claim h3{font-size:1.08rem;margin:0;line-height:1.35}
+.claim .pill{flex:none;font-size:.8rem;font-weight:600;padding:.2rem .65rem;border-radius:999px;white-space:nowrap}
+.claim .where{color:var(--muted);font-size:.9rem;margin:.3rem 0 0}
+.claim dl{display:grid;grid-template-columns:8.5rem 1fr;gap:.35rem 1rem;margin:.85rem 0 0;font-size:.95rem}
+.claim dt{color:var(--muted)}
+.claim dd{margin:0}
+@media (max-width:560px){.claim dl{grid-template-columns:1fr}.claim dt{margin-top:.4rem}}
+.evidence{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem;align-items:center}
+.evidence .shot{width:8rem}
+.evidence a{font-size:.88rem;color:var(--accent);overflow-wrap:anywhere}
+section.extra{margin-top:2.25rem}
+section.extra h2{font-size:1.2rem;margin:0 0 .6rem}
+section.extra ul{margin:0;padding-left:1.2rem}
+section.extra li{margin-bottom:.4rem}
+.report-actions{display:flex;gap:.6rem;margin-top:2rem;align-items:center;flex-wrap:wrap}
+.report-actions .status{color:var(--muted);font-size:.9rem}
+footer{margin-top:3.5rem;color:var(--muted);font-size:.85rem;border-top:1.5px solid var(--line);padding-top:1rem;max-width:42rem}
+dialog{border:0;padding:0;border-radius:12px;max-width:min(92vw,1100px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog img{display:block;max-width:100%;height:auto}
+dialog .cap{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.6rem .9rem;font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>Audit</h1>
+  <p class="lede">Paste a website. An agent opens it in a real browser, tests what the site claims, and shows you what actually happens.</p>
+
+  <form class="bar" id="form" autocomplete="off">
+    <input id="url" type="text" inputmode="url" placeholder="https://project-website.com" spellcheck="false" aria-label="Website URL">
+    <button class="btn btn-primary" id="run" type="submit">Run audit</button>
+  </form>
+  <div class="keyrow" id="keyrow" hidden>
+    <label for="key">Access key</label>
+    <input id="key" type="password" autocomplete="current-password" placeholder="From your server's ACCESS_KEY">
+  </div>
+  <div class="examples">Try: <button type="button" data-ex="https://attentionagents.fun/">attentionagents.fun</button> or <button type="button" data-ex="https://floatingpragma.io/">floatingpragma.io</button></div>
+  <div class="error" id="err" role="alert" hidden></div>
+
+  <section class="run" id="run-section" hidden aria-live="polite">
+    <div class="run-head">
+      <h2 id="run-title">Agent at work</h2>
+      <div class="run-meta"><span id="elapsed">0s</span><button class="btn btn-ghost btn-small" id="stop" type="button">Stop</button></div>
+    </div>
+    <ol class="feed" id="feed"></ol>
+    <div class="shots" id="shots"></div>
+  </section>
+
+  <article class="report" id="report" hidden></article>
+
+  <footer>Audit only performs safe, read-only actions: it never connects a wallet, signs, pays, or enters personal data. It reports what it could observe from a browser. Server-side logic, private features and anything behind a login are marked as untestable.</footer>
+</main>
+
+<dialog id="viewer"><img id="viewer-img" alt=""><div class="cap"><span id="viewer-cap"></span><button class="btn btn-ghost btn-small" id="viewer-close" type="button">Close</button></div></dialog>
+
+<script>
+(function(){
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const STATUS = {
+    works: "Works as claimed",
+    partial: "Partly works",
+    not_as_claimed: "Not as claimed",
+    untestable: "Couldn't test"
+  };
+  const ICON = { running: "●", done: "✓", error: "✕", blocked: "⦸" };
+  const store = {
+    get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+    set(k,v){ try { localStorage.setItem(k, v); } catch {} }
+  };
+
+  let es = null, timer = null, t0 = 0, finished = true, lastReport = null;
+  const shots = new Map();
+  const steps = new Map();
+
+  fetch("/api/config").then(r => r.json()).then(c => {
+    if (c.needsKey) { $("#keyrow").hidden = false; $("#key").value = store.get("audit-key") || ""; }
+  }).catch(() => {});
+
+  document.querySelectorAll("[data-ex]").forEach(b => b.addEventListener("click", () => { $("#url").value = b.dataset.ex; $("#url").focus(); }));
+  $("#form").addEventListener("submit", (e) => { e.preventDefault(); start(); });
+  $("#stop").addEventListener("click", () => stop("Stopped."));
+  $("#viewer-close").addEventListener("click", () => $("#viewer").close());
+  $("#viewer").addEventListener("click", (e) => { if (e.target === $("#viewer")) $("#viewer").close(); });
+
+  function showError(msg){ const e = $("#err"); e.textContent = msg; e.hidden = !msg; }
+
+  function start(){
+    const url = $("#url").value.trim();
+    if (!url) { showError("Paste a website URL first."); $("#url").focus(); return; }
+    showError("");
+    if (es) es.close();
+    shots.clear(); steps.clear(); lastReport = null;
+    $("#feed").replaceChildren(); $("#shots").replaceChildren();
+    $("#report").hidden = true; $("#report").replaceChildren();
+    $("#run-section").hidden = false; $("#run-title").textContent = "Agent at work";
+    $("#run").disabled = true; $("#stop").hidden = false;
+    finished = false;
+    t0 = Date.now(); clearInterval(timer);
+    timer = setInterval(() => { $("#elapsed").textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 1000);
+    $("#elapsed").textContent = "0s";
+
+    const qs = new URLSearchParams({ url });
+    const key = $("#key").value.trim();
+    if (key) { qs.set("key", key); store.set("audit-key", key); }
+    es = new EventSource("/api/audit?" + qs.toString());
+
+    es.addEventListener("status", (e) => setNote(JSON.parse(e.data).text + "…", true));
+    es.addEventListener("thought", (e) => addNote(JSON.parse(e.data).text));
+    es.addEventListener("step", (e) => upsertStep(JSON.parse(e.data)));
+    es.addEventListener("screenshot", (e) => addShot(JSON.parse(e.data)));
+    es.addEventListener("report", (e) => { lastReport = JSON.parse(e.data); renderReport(lastReport); });
+    es.addEventListener("fail", (e) => {
+      const d = JSON.parse(e.data);
+      if (d.code === "unauthorized") { $("#keyrow").hidden = false; $("#key").focus(); }
+      end(d.message);
+    });
+    es.addEventListener("done", () => end(""));
+    es.onerror = () => { if (!finished) end("Lost the connection to the server. Run the audit again."); };
+  }
+
+  function end(errMsg){
+    finished = true;
+    if (es) { es.close(); es = null; }
+    clearInterval(timer);
+    $("#run").disabled = false; $("#stop").hidden = true;
+    clearStatus();
+    $("#run-title").textContent = lastReport ? "What the agent did" : "Agent stopped";
+    if (errMsg) showError(errMsg);
+  }
+  function stop(msg){ if (!finished) end(msg); }
+
+  let statusLi = null;
+  function setNote(text){
+    if (!statusLi) { statusLi = el("li", "running"); statusLi.append(el("span", "icon", ICON.running), el("span", "label")); }
+    statusLi.querySelector(".label").textContent = text;
+    $("#feed").append(statusLi);
+    scrollFeed();
+  }
+  function clearStatus(){ if (statusLi) { statusLi.remove(); statusLi = null; } }
+  function addNote(text){
+    const li = el("li", "note"); li.append(el("span", "icon", "›"), el("span", null, text));
+    $("#feed").append(li); if (statusLi) $("#feed").append(statusLi); scrollFeed();
+  }
+  function upsertStep(d){
+    let li = steps.get(d.id);
+    if (!li) { li = el("li"); li.append(el("span", "icon"), el("span", "label")); steps.set(d.id, li); $("#feed").append(li); }
+    li.className = d.state;
+    li.querySelector(".icon").textContent = ICON[d.state] || "•";
+    const lab = li.querySelector(".label"); lab.textContent = d.label;
+    if (d.summary) lab.append(el("span", "sum", d.summary));
+    if (d.state === "running") clearStatus();
+    scrollFeed();
+  }
+  function scrollFeed(){ const f = $("#feed"); f.scrollTop = f.scrollHeight; }
+
+  function shotButton(id){
+    const s = shots.get(id); if (!s) return null;
+    const b = el("button", "shot"); b.type = "button";
+    const img = el("img"); img.src = s.data; img.alt = s.label || id; img.loading = "lazy";
+    b.append(img, el("span", null, id + "  " + (s.label || "")));
+    b.addEventListener("click", () => { $("#viewer-img").src = s.data; $("#viewer-img").alt = s.label; $("#viewer-cap").textContent = id + ": " + s.label; $("#viewer").showModal(); });
+    return b;
+  }
+  function addShot(d){ shots.set(d.id, d); const b = shotButton(d.id); if (b) $("#shots").append(b); }
+
+  function renderReport(r){
+    const rep = $("#report"); rep.replaceChildren(); rep.hidden = false;
+    rep.append(el("h2", "site-title", r.site_title || "Report"));
+    const u = el("div", "site-url"); const a = el("a", null, r.url); a.href = r.url; a.target = "_blank"; a.rel = "noopener noreferrer nofollow"; u.append(a); rep.append(u);
+    if (r.site_summary) rep.append(el("p", "site-summary", r.site_summary));
+
+    const claims = Array.isArray(r.claims) ? r.claims : [];
+    const counts = {}; claims.forEach(c => counts[c.status] = (counts[c.status] || 0) + 1);
+    const tally = el("div", "tally");
+    Object.keys(STATUS).forEach(k => { if (counts[k]) { const c = el("span", "chip " + k); c.append(el("b", null, String(counts[k])), document.createTextNode(STATUS[k].toLowerCase())); tally.append(c); } });
+    if (claims.length) rep.append(tally);
+
+    const ul = el("ul", "claims");
+    claims.forEach(c => {
+      const st = STATUS[c.status] ? c.status : "untestable";
+      const li = el("li", "claim");
+      const top = el("div", "claim-top"); top.append(el("h3", null, c.claim || ""), el("span", "pill " + st, STATUS[st])); li.append(top);
+      if (c.where) li.append(el("p", "where", c.where));
+      const dl = el("dl");
+      dl.append(el("dt", null, "What Audit did"), el("dd", null, c.test || ""), el("dt", null, "What happened"), el("dd", null, c.observed || ""));
+      li.append(dl);
+      const ev = el("div", "evidence");
+      (c.screenshots || []).forEach(id => { const b = shotButton(id); if (b) ev.append(b); });
+      (c.links || []).forEach(href => { if (!/^https?:\/\//i.test(href)) return; const l = el("a", null, href); l.href = href; l.target = "_blank"; l.rel = "noopener noreferrer nofollow"; ev.append(l); });
+      if (ev.childNodes.length) li.append(ev);
+      ul.append(li);
+    });
+    rep.append(ul);
+
+    [["What this audit couldn't check", r.limits], ["Questions that would settle the open points", r.questions_for_team]].forEach(([title, items]) => {
+      if (!Array.isArray(items) || !items.length) return;
+      const s = el("section", "extra"); s.append(el("h2", null, title));
+      const list = el("ul"); items.forEach(t => list.append(el("li", null, String(t)))); s.append(list); rep.append(s);
+    });
+
+    const act = el("div", "report-actions");
+    const copy = el("button", "btn btn-ghost btn-small", "Copy report"); copy.type = "button";
+    const msg = el("span", "status");
+    copy.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(toText(r)); msg.textContent = "Copied."; }
+      catch { msg.textContent = "Couldn't copy automatically. Select the report text and copy it."; }
+    });
+    act.append(copy, msg); rep.append(act);
+    rep.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }
+
+  function toText(r){
+    const lines = [`Audit: ${r.site_title}`, r.url, "", r.site_summary || "", ""];
+    (r.claims || []).forEach((c, i) => {
+      lines.push(`${i + 1}. ${c.claim} — ${STATUS[c.status] || c.status}`);
+      if (c.where) lines.push(`   Where: ${c.where}`);
+      lines.push(`   Tested: ${c.test}`, `   Observed: ${c.observed}`);
+      (c.links || []).forEach(l => lines.push(`   ${l}`));
+      lines.push("");
+    });
+    if (r.limits?.length) { lines.push("Couldn't check:"); r.limits.forEach(l => lines.push(`- ${l}`)); lines.push(""); }
+    if (r.questions_for_team?.length) { lines.push("Open questions:"); r.questions_for_team.forEach(q => lines.push(`- ${q}`)); }
+    return lines.join("\n");
+  }
+})();
+</script>
+</body>
+</html>
